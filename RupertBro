@@ -98,7 +98,7 @@ local function Drag(guiObject)
 end
 -- ========== KEY SYSTEM ==========
 local playIntro -- Forward declaration for intro animation
-local CORRECT_KEY = "Key_cXmnZK65rf*&DaaD" -- Change this to your desired key!
+local CORRECT_KEY = "Key_Rupert" -- Change this to your desired key!
 
 local keyGui = Instance.new("ScreenGui")
 keyGui.Name = "KeySystemGui"
