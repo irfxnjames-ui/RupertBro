@@ -96,6 +96,230 @@ local function Drag(guiObject)
 		end
 	end)
 end
+-- ========== KEY SYSTEM ==========
+local playIntro -- Forward declaration for intro animation
+local CORRECT_KEY = "Key_cXmnZK65rf*&DaaD" -- Change this to your desired key!
+
+local keyGui = Instance.new("ScreenGui")
+keyGui.Name = "KeySystemGui"
+keyGui.ResetOnSpawn = false
+keyGui.DisplayOrder = 200
+keyGui.Parent = LocalPlayer.PlayerGui
+
+-- Dim backdrop
+local keyOverlay = Instance.new("Frame")
+keyOverlay.Size = UDim2.new(1, 0, 1, 0)
+keyOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+keyOverlay.BackgroundTransparency = 0.3
+keyOverlay.BorderSizePixel = 0
+keyOverlay.ZIndex = 1
+keyOverlay.Parent = keyGui
+
+-- Key card
+local keyCardW, keyCardH = 340, 220
+local keyCard = Instance.new("Frame")
+keyCard.Size = UDim2.new(0, 0, 0, 0)
+keyCard.Position = UDim2.new(0.5, 0, 0.5, 0)
+keyCard.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
+keyCard.BorderSizePixel = 0
+keyCard.ClipsDescendants = true
+keyCard.ZIndex = 2
+keyCard.Parent = keyGui
+makeCorner(keyCard, 16)
+makeStroke(keyCard, Color3.fromRGB(0, 120, 180), 1.2)
+local keyCardGrad = Instance.new("UIGradient")
+keyCardGrad.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(18, 18, 32)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(12, 12, 22)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(6, 6, 14))
+}
+keyCardGrad.Rotation = 180
+keyCardGrad.Parent = keyCard
+
+-- Top accent bar
+local keyTopBar = Instance.new("Frame")
+keyTopBar.Size = UDim2.new(1, 0, 0, 3)
+keyTopBar.BackgroundColor3 = ACCENT
+keyTopBar.BorderSizePixel = 0
+keyTopBar.ZIndex = 10
+keyTopBar.Parent = keyCard
+local keyTopGrad = Instance.new("UIGradient")
+keyTopGrad.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, ACCENT),
+	ColorSequenceKeypoint.new(0.5, ACCENT_PURPLE),
+	ColorSequenceKeypoint.new(1, ACCENT_PINK)
+}
+keyTopGrad.Parent = keyTopBar
+
+-- Glow layers
+local keyGlow2 = Instance.new("Frame")
+keyGlow2.Size = UDim2.new(1, 50, 1, 50)
+keyGlow2.Position = UDim2.new(0, -25, 0, -25)
+keyGlow2.BackgroundColor3 = ACCENT
+keyGlow2.BackgroundTransparency = 0.94
+keyGlow2.BorderSizePixel = 0
+keyGlow2.ZIndex = -1
+keyGlow2.Parent = keyCard
+makeCorner(keyGlow2, 32)
+local keyGlow1 = Instance.new("Frame")
+keyGlow1.Size = UDim2.new(1, 28, 1, 28)
+keyGlow1.Position = UDim2.new(0, -14, 0, -14)
+keyGlow1.BackgroundColor3 = ACCENT
+keyGlow1.BackgroundTransparency = 0.97
+keyGlow1.BorderSizePixel = 0
+keyGlow1.ZIndex = -1
+keyGlow1.Parent = keyCard
+makeCorner(keyGlow1, 24)
+
+-- Lock icon
+local lockIcon = Instance.new("TextLabel")
+lockIcon.Size = UDim2.new(1, 0, 0, 30)
+lockIcon.Position = UDim2.new(0, 0, 0, 16)
+lockIcon.BackgroundTransparency = 1
+lockIcon.Text = "🔒"
+lockIcon.Font = Enum.Font.GothamBold
+lockIcon.TextSize = 24
+lockIcon.TextColor3 = ACCENT
+lockIcon.ZIndex = 4
+lockIcon.Parent = keyCard
+
+-- Title
+local keyTitle = Instance.new("TextLabel")
+keyTitle.Size = UDim2.new(1, 0, 0, 28)
+keyTitle.Position = UDim2.new(0, 0, 0, 46)
+keyTitle.BackgroundTransparency = 1
+keyTitle.Text = "KEY REQUIRED"
+keyTitle.Font = Enum.Font.GothamBold
+keyTitle.TextSize = 18
+keyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+keyTitle.ZIndex = 4
+keyTitle.Parent = keyCard
+local keyTitleGrad = Instance.new("UIGradient")
+keyTitleGrad.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+	ColorSequenceKeypoint.new(0.6, ACCENT),
+	ColorSequenceKeypoint.new(1, ACCENT_PURPLE)
+}
+keyTitleGrad.Parent = keyTitle
+
+-- Subtitle
+local keySubtitle = Instance.new("TextLabel")
+keySubtitle.Size = UDim2.new(1, -40, 0, 16)
+keySubtitle.Position = UDim2.new(0, 20, 0, 74)
+keySubtitle.BackgroundTransparency = 1
+keySubtitle.Text = "Enter the key to access Rupert Exploits"
+keySubtitle.Font = Enum.Font.Gotham
+keySubtitle.TextSize = 11
+keySubtitle.TextColor3 = TEXT_SECONDARY
+keySubtitle.ZIndex = 4
+keySubtitle.Parent = keyCard
+
+-- Key input box
+local keyInput = Instance.new("TextBox")
+keyInput.Size = UDim2.new(1, -40, 0, 36)
+keyInput.Position = UDim2.new(0, 20, 0, 100)
+keyInput.BackgroundColor3 = Color3.fromRGB(14, 14, 24)
+keyInput.Text = ""
+keyInput.PlaceholderText = "Enter key here..."
+keyInput.PlaceholderColor3 = TEXT_SECONDARY
+keyInput.TextColor3 = TEXT_PRIMARY
+keyInput.Font = Enum.Font.Gotham
+keyInput.TextSize = 14
+keyInput.ClearTextOnFocus = false
+keyInput.BorderSizePixel = 0
+keyInput.ZIndex = 4
+keyInput.Parent = keyCard
+makeCorner(keyInput, 10)
+makeStroke(keyInput, Color3.fromRGB(40, 40, 65), 0.8)
+
+-- Error message label
+local keyError = Instance.new("TextLabel")
+keyError.Size = UDim2.new(1, -40, 0, 16)
+keyError.Position = UDim2.new(0, 20, 0, 140)
+keyError.BackgroundTransparency = 1
+keyError.Text = ""
+keyError.Font = Enum.Font.GothamBold
+keyError.TextSize = 11
+keyError.TextColor3 = DANGER
+keyError.ZIndex = 4
+keyError.Parent = keyCard
+
+-- Submit button
+local keySubmit = Instance.new("TextButton")
+keySubmit.Size = UDim2.new(1, -40, 0, 40)
+keySubmit.Position = UDim2.new(0, 20, 0, 162)
+keySubmit.BackgroundColor3 = Color3.fromRGB(0, 60, 100)
+keySubmit.Text = "UNLOCK"
+keySubmit.TextColor3 = ACCENT
+keySubmit.Font = Enum.Font.GothamBold
+keySubmit.TextSize = 14
+keySubmit.BorderSizePixel = 0
+keySubmit.AutoButtonColor = false
+keySubmit.ZIndex = 4
+keySubmit.Parent = keyCard
+makeCorner(keySubmit, 10)
+makeStroke(keySubmit, Color3.fromRGB(0, 120, 180), 0.8)
+
+-- Hover effects for submit
+keySubmit.MouseEnter:Connect(function()
+	tw(keySubmit, {BackgroundColor3 = Color3.fromRGB(0, 80, 130)}, 0.15):Play()
+end)
+keySubmit.MouseLeave:Connect(function()
+	tw(keySubmit, {BackgroundColor3 = Color3.fromRGB(0, 60, 100)}, 0.15):Play()
+end)
+
+-- Key verification function
+local function verifyKey()
+	local input = keyInput.Text
+	if input == CORRECT_KEY then
+		-- Success animation
+		keyError.Text = ""
+		tw(keySubmit, {BackgroundColor3 = SUCCESS, TextColor3 = Color3.new(1,1,1)}, 0.15):Play()
+		keySubmit.Text = "✓ UNLOCKED"
+		task.wait(0.5)
+		-- Animate key card out
+		tw(keyCard, {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}, 0.3, Enum.EasingStyle.Back):Play()
+		tw(keyOverlay, {BackgroundTransparency = 1}, 0.4):Play()
+		task.wait(0.4)
+		keyGui:Destroy()
+		-- Trigger intro animation
+		playIntro()
+	else
+		-- Wrong key - shake animation
+		keyError.Text = "Invalid key. Try again."
+		tw(keyInput, {BackgroundColor3 = Color3.fromRGB(60, 15, 20)}, 0.1):Play()
+		local baseX = -keyCardW/2
+		local baseY = -keyCardH/2
+		tw(keyCard, {Position = UDim2.new(0.5, baseX - 8, 0.5, baseY)}, 0.05):Play()
+		task.wait(0.05)
+		tw(keyCard, {Position = UDim2.new(0.5, baseX + 8, 0.5, baseY)}, 0.05):Play()
+		task.wait(0.05)
+		tw(keyCard, {Position = UDim2.new(0.5, baseX - 4, 0.5, baseY)}, 0.05):Play()
+		task.wait(0.05)
+		tw(keyCard, {Position = UDim2.new(0.5, baseX + 4, 0.5, baseY)}, 0.05):Play()
+		task.wait(0.05)
+		tw(keyCard, {Position = UDim2.new(0.5, baseX, 0.5, baseY)}, 0.1):Play()
+		tw(keyInput, {BackgroundColor3 = Color3.fromRGB(14, 14, 24)}, 0.3):Play()
+		task.wait(1.5)
+		keyError.Text = ""
+	end
+end
+
+keySubmit.MouseButton1Click:Connect(verifyKey)
+keyInput.FocusLost:Connect(function(enterPressed)
+	if enterPressed then
+		verifyKey()
+	end
+end)
+
+-- Animate key card in
+keyCard.Size = UDim2.new(0, 0, 0, 0)
+keyCard.Position = UDim2.new(0.5, 0, 0.5, 0)
+task.spawn(function()
+	task.wait(0.1)
+	tw(keyCard, {Size = UDim2.new(0, keyCardW, 0, keyCardH), Position = UDim2.new(0.5, -keyCardW/2, 0.5, -keyCardH/2)}, 0.5, Enum.EasingStyle.Back):Play()
+end)
+
 -- Main GUI
 local gui = Instance.new("ScreenGui")
 gui.Name = "ModernUI"
@@ -4432,7 +4656,7 @@ end)
 Drag(frame)
 Drag(open)
 -- ========== INTRO ANIMATION ==========
-do
+playIntro = function()
 	local introGui = Instance.new("ScreenGui")
 	introGui.Name = "IntroGui"
 	introGui.ResetOnSpawn = false
