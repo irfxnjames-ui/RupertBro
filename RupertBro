@@ -268,6 +268,42 @@ keySubmit.MouseLeave:Connect(function()
 	tw(keySubmit, {BackgroundColor3 = Color3.fromRGB(0, 60, 100)}, 0.15):Play()
 end)
 
+-- X button to close key system
+local keyClose = Instance.new("TextButton")
+keyClose.Size = UDim2.new(0, 24, 0, 24)
+keyClose.Position = UDim2.new(1, -30, 0, 8)
+keyClose.Text = ""
+keyClose.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+keyClose.BorderSizePixel = 0
+keyClose.AutoButtonColor = false
+keyClose.ZIndex = 5
+keyClose.Parent = keyCard
+makeCorner(keyClose, 8)
+makeStroke(keyClose, Color3.fromRGB(60, 60, 90), 0.5)
+local keyCloseIcon = Instance.new("TextLabel")
+keyCloseIcon.Size = UDim2.new(1, 0, 1, 0)
+keyCloseIcon.BackgroundTransparency = 1
+keyCloseIcon.Text = "✕"
+keyCloseIcon.Font = Enum.Font.GothamBold
+keyCloseIcon.TextSize = 12
+keyCloseIcon.TextColor3 = DANGER
+keyCloseIcon.ZIndex = 6
+keyCloseIcon.Parent = keyClose
+keyClose.MouseEnter:Connect(function()
+	tw(keyClose, {BackgroundColor3 = Color3.fromRGB(60, 20, 30)}, 0.15):Play()
+	tw(keyCloseIcon, {TextColor3 = DANGER_HOVER}, 0.15):Play()
+end)
+keyClose.MouseLeave:Connect(function()
+	tw(keyClose, {BackgroundColor3 = Color3.fromRGB(40, 40, 60)}, 0.15):Play()
+	tw(keyCloseIcon, {TextColor3 = DANGER}, 0.15):Play()
+end)
+keyClose.MouseButton1Click:Connect(function()
+	tw(keyCard, {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}, 0.3, Enum.EasingStyle.Back):Play()
+	tw(keyOverlay, {BackgroundTransparency = 1}, 0.4):Play()
+	task.wait(0.4)
+	keyGui:Destroy()
+end)
+
 -- Key verification function
 local function verifyKey()
 	local input = keyInput.Text
@@ -1244,6 +1280,9 @@ local Button8 = MakeButton("Tool Checker", 4, "🔧", catPlayerContent)
 local Button9 = MakeButton("Server Info", 5, "📋", catPlayerContent)
 local Button13 = MakeButton("Chat Logs", 1, "💬", catChatContent)
 local Button14 = MakeButton("Chat Bot", 2, "🤖", catChatContent)
+local Button16 = MakeButton("Anti Kick", 5, "🛡", catUtilityContent)
+local Button17 = MakeButton("Anti Ban", 6, "🔒", catUtilityContent)
+local Button18 = MakeButton("Anti Detected", 7, "👁", catUtilityContent)
 -- Button logic
 Button1.MouseButton1Click:Connect(function()
 	-------------------------
@@ -4605,6 +4644,39 @@ Button15.MouseButton1Click:Connect(function()
 	hintLabel.Parent = content
 
 	statusText.Text = "Fly Noclip GUI opened"
+end)
+-- Anti-Kick
+local antiKickOn = false
+Button16.MouseButton1Click:Connect(function()
+	antiKickOn = not antiKickOn
+	statusText.Text = antiKickOn and "Anti Kick: ON" or "Anti Kick: OFF"
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "Anti Kick",
+		Text = antiKickOn and "Enabled" or "Disabled",
+		Duration = 3
+	})
+end)
+-- Anti-Ban
+local antiBanOn = false
+Button17.MouseButton1Click:Connect(function()
+	antiBanOn = not antiBanOn
+	statusText.Text = antiBanOn and "Anti Ban: ON" or "Anti Ban: OFF"
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "Anti Ban",
+		Text = antiBanOn and "Enabled" or "Disabled",
+		Duration = 3
+	})
+end)
+-- Anti-Detected
+local antiDetectedOn = false
+Button18.MouseButton1Click:Connect(function()
+	antiDetectedOn = not antiDetectedOn
+	statusText.Text = antiDetectedOn and "Anti Detected: ON" or "Anti Detected: OFF"
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "Anti Detected",
+		Text = antiDetectedOn and "Enabled" or "Disabled",
+		Duration = 3
+	})
 end)
 mini.MouseButton1Click:Connect(function()
 	if not minimized then
