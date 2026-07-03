@@ -23,6 +23,46 @@ local DANGER = Color3.fromRGB(255, 50, 80)
 local DANGER_HOVER = Color3.fromRGB(255, 80, 100)
 local SUCCESS = Color3.fromRGB(0, 255, 136)
 local WARNING = Color3.fromRGB(255, 200, 50)
+-- Helper: Send chat message (works with TextChatService and legacy chat)
+local TextChatService = game:GetService("TextChatService")
+local function sendChat(msg)
+	if not msg or msg == "" then return end
+	local sent = false
+	-- Method 1: New TextChatService (TextChannel:SendAsync)
+	pcall(function()
+		local channels = TextChatService:FindFirstChild("TextChannels")
+		if channels then
+			local general = channels:FindFirstChild("RBXGeneral")
+			if general then
+				general:SendAsync(msg)
+				sent = true
+			end
+		end
+	end)
+	if sent then return end
+	-- Method 2: Legacy chat system (SayMessageRequest)
+	pcall(function()
+		local chatRemote = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+		if chatRemote then
+			local sayMsg = chatRemote:FindFirstChild("SayMessageRequest")
+			if sayMsg then
+				sayMsg:FireServer(msg, "All")
+				sent = true
+			end
+		end
+	end)
+	if sent then return end
+	-- Method 3: Fallback - try WaitForChild on TextChannels (may not exist yet)
+	pcall(function()
+		local channels = TextChatService:WaitForChild("TextChannels", 3)
+		if channels then
+			local general = channels:WaitForChild("RBXGeneral", 3)
+			if general then
+				general:SendAsync(msg)
+			end
+		end
+	end)
+end
 -- Utility: Add UICorner
 local function makeCorner(parent, radius)
 	local c = Instance.new("UICorner")
@@ -1287,13 +1327,25 @@ local Button15 = MakeButton("Fly Noclip", 4, "👻", catUtilityContent, "Fly and
 local Button4 = MakeButton("Emote Player", 1, "♪", catVisualContent, "Play custom emotes")
 local Button11 = MakeButton("Invisible", 2, "👤", catVisualContent, "Toggle character visibility")
 local Button10 = MakeButton("Anti-Afk", 3, "💤", catVisualContent, "Prevent auto-kick for idling")
+local Button19 = MakeButton("Player ESP", 4, "👁", catVisualContent, "See players through walls")
+local Button20 = MakeButton("Tracers", 5, "📡", catVisualContent, "Draw lines to all players")
+local Button21 = MakeButton("Crosshair", 6, "🎯", catVisualContent, "Show a custom crosshair")
+local Button22 = MakeButton("X-Ray", 7, "🔍", catVisualContent, "Make walls transparent")
 local Button5 = MakeButton("Copy Map", 1, "💾", catMoreContent, "Save the game map")
 local Button7 = MakeButton("Copy Map Quickly", 2, "💾", catMoreContent, "Fast map saving method")
 local Button6 = MakeButton("Spectator", 3, "👁", catPlayerContent, "Watch other players")
 local Button8 = MakeButton("Tool Checker", 4, "🔧", catPlayerContent, "See who has tools equipped")
 local Button9 = MakeButton("Server Info", 5, "📋", catPlayerContent, "View server details")
+local Button23 = MakeButton("Walk Speed", 7, "🏃", catPlayerContent, "Toggle increased walk speed")
+local Button24 = MakeButton("Infinite Jump", 8, "⬆", catPlayerContent, "Jump infinitely in the air")
+local Button25 = MakeButton("Noclip", 9, "🚷", catPlayerContent, "Walk through walls")
 local Button13 = MakeButton("Chat Logs", 1, "💬", catChatContent, "Monitor chat messages")
 local Button14 = MakeButton("Chat Bot", 2, "🤖", catChatContent, "Auto-reply to chat messages")
+local Button26 = MakeButton("Chat Spammer", 3, "📨", catChatContent, "Spam messages with custom delay")
+local Button27 = MakeButton("Fake Chat", 4, "🎭", catChatContent, "Create fake chat messages")
+local Button28 = MakeButton("Chat Bypasser", 5, "🔓", catChatContent, "Bypass chat filter with special text")
+local Button29 = MakeButton("Word Bomb", 6, "💣", catChatContent, "Send messages character by character")
+local Button30 = MakeButton("Chat Muter", 7, "🔇", catChatContent, "Mute specific players from chat")
 local Button16 = MakeButton("Anti Kick", 5, "🛡", catUtilityContent, "Toggle kick protection")
 local Button17 = MakeButton("Anti Ban", 6, "🔒", catUtilityContent, "Toggle ban protection")
 local Button18 = MakeButton("Anti Detected", 7, "👁", catUtilityContent, "Toggle detection protection")
@@ -4150,13 +4202,7 @@ Button14.MouseButton1Click:Connect(function()
 							local lowerMsg = string.lower(msg)
 							for _, resp in ipairs(chatBotResponses) do
 								if string.find(lowerMsg, resp.keyword, 1, true) then
-									local chatRemote = game.ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
-									if chatRemote then
-										local sayMsg = chatRemote:FindFirstChild("SayMessageRequest")
-										if sayMsg then
-											sayMsg:FireServer(resp.reply, "All")
-										end
-									end
+									sendChat(resp.reply)
 									break
 								end
 							end
@@ -4336,6 +4382,740 @@ Button14.MouseButton1Click:Connect(function()
 		end
 	end)
 	statusText.Text = "Chat Bot opened"
+end)
+-- Button 26: CHAT SPAMMER
+local spammerOn = false
+local spammerThread = nil
+Button26.MouseButton1Click:Connect(function()
+	local subGui, subFrame, content = MakeSubWindow("Chat Spammer", "📨", 360, 300)
+	-- Message input
+	local msgLabel = Instance.new("TextLabel")
+	msgLabel.Size = UDim2.new(1, -24, 0, 18)
+	msgLabel.Position = UDim2.new(0, 12, 0, 12)
+	msgLabel.BackgroundTransparency = 1
+	msgLabel.Text = "Message to spam:"
+	msgLabel.Font = Enum.Font.GothamBold
+	msgLabel.TextSize = 12
+	msgLabel.TextColor3 = TEXT_SECONDARY
+	msgLabel.TextXAlignment = Enum.TextXAlignment.Left
+	msgLabel.Parent = content
+	local msgBox = Instance.new("TextBox")
+	msgBox.Size = UDim2.new(1, -24, 0, 36)
+	msgBox.Position = UDim2.new(0, 12, 0, 34)
+	msgBox.BackgroundColor3 = Color3.fromRGB(14, 14, 24)
+	msgBox.Text = ""
+	msgBox.PlaceholderText = "Type message to spam..."
+	msgBox.PlaceholderColor3 = TEXT_SECONDARY
+	msgBox.TextColor3 = TEXT_PRIMARY
+	msgBox.Font = Enum.Font.Gotham
+	msgBox.TextSize = 13
+	msgBox.BorderSizePixel = 0
+	msgBox.ClearTextOnFocus = false
+	msgBox.Parent = content
+	Instance.new("UICorner", msgBox).CornerRadius = UDim.new(0, 8)
+	makeStroke(msgBox, Color3.fromRGB(40, 40, 65), 0.8)
+	-- Delay slider
+	local delayLabel = Instance.new("TextLabel")
+	delayLabel.Size = UDim2.new(0, 200, 0, 18)
+	delayLabel.Position = UDim2.new(0, 12, 0, 84)
+	delayLabel.BackgroundTransparency = 1
+	delayLabel.Text = "Delay: 1.0s"
+	delayLabel.Font = Enum.Font.GothamBold
+	delayLabel.TextSize = 12
+	delayLabel.TextColor3 = TEXT_SECONDARY
+	delayLabel.TextXAlignment = Enum.TextXAlignment.Left
+	delayLabel.Parent = content
+	local currentDelay = 1.0
+	local sliderTrack = Instance.new("Frame")
+	sliderTrack.Size = UDim2.new(1, -24, 0, 8)
+	sliderTrack.Position = UDim2.new(0, 12, 0, 108)
+	sliderTrack.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+	sliderTrack.BorderSizePixel = 0
+	sliderTrack.Parent = content
+	Instance.new("UICorner", sliderTrack).CornerRadius = UDim.new(0, 4)
+	local sliderFill = Instance.new("Frame")
+	sliderFill.Size = UDim2.new(0.25, 0, 1, 0)
+	sliderFill.BackgroundColor3 = ACCENT
+	sliderFill.BorderSizePixel = 0
+	sliderFill.Parent = sliderTrack
+	Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(0, 4)
+	local sliderFillGrad = Instance.new("UIGradient")
+	sliderFillGrad.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, ACCENT),
+		ColorSequenceKeypoint.new(1, ACCENT_PURPLE)
+	}
+	sliderFillGrad.Parent = sliderFill
+	local sliderKnob = Instance.new("Frame")
+	sliderKnob.Size = UDim2.new(0, 16, 0, 16)
+	sliderKnob.Position = UDim2.new(0.25, 0, 0.5, -8)
+	sliderKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	sliderKnob.BorderSizePixel = 0
+	sliderKnob.ZIndex = 3
+	sliderKnob.Parent = sliderTrack
+	Instance.new("UICorner", sliderKnob).CornerRadius = UDim.new(1, 0)
+	makeStroke(sliderKnob, ACCENT, 1.5)
+	local dragging = false
+	local function updateSlider(input)
+		local trackPos = sliderTrack.AbsolutePosition.X
+		local trackSize = sliderTrack.AbsoluteSize.X
+		local relative = math.clamp(input.Position.X - trackPos, 0, trackSize)
+		local percent = relative / trackSize
+		currentDelay = math.floor((0.1 + percent * 4.9) * 10) / 10
+		delayLabel.Text = "Delay: " .. string.format("%.1f", currentDelay) .. "s"
+		sliderFill.Size = UDim2.new(percent, 0, 1, 0)
+		sliderKnob.Position = UDim2.new(percent, 0, 0.5, -8)
+	end
+	sliderTrack.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			updateSlider(input)
+		end
+	end)
+	UIS.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+	UIS.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			updateSlider(input)
+		end
+	end)
+	-- Toggle button
+	local spamBtn = Instance.new("TextButton")
+	spamBtn.Size = UDim2.new(1, -24, 0, 42)
+	spamBtn.Position = UDim2.new(0, 12, 1, -54)
+	spamBtn.Text = "START SPAM"
+	spamBtn.Font = Enum.Font.GothamBold
+	spamBtn.TextSize = 14
+	spamBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	spamBtn.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+	spamBtn.BorderSizePixel = 0
+	spamBtn.AutoButtonColor = false
+	spamBtn.Parent = content
+	Instance.new("UICorner", spamBtn).CornerRadius = UDim.new(0, 10)
+	makeStroke(spamBtn, DANGER, 1)
+	spamBtn.MouseButton1Click:Connect(function()
+		spammerOn = not spammerOn
+		if spammerOn then
+			spamBtn.Text = "STOP SPAM"
+			spamBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 50)
+			makeStroke(spamBtn, SUCCESS, 1)
+			local spamMsg = msgBox.Text
+			if spamMsg == "" then spamMsg = "Spam!" end
+			statusText.Text = "Spammer: ON"
+			spammerThread = task.spawn(function()
+				while spammerOn do
+					sendChat(spamMsg)
+					task.wait(currentDelay)
+				end
+			end)
+		else
+			spamBtn.Text = "START SPAM"
+			spamBtn.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+			makeStroke(spamBtn, DANGER, 1)
+			statusText.Text = "Spammer: OFF"
+		end
+	end)
+	-- Cleanup on close
+	subGui.AncestryChanged:Connect(function()
+		if not subGui.Parent then
+			spammerOn = false
+		end
+	end)
+	statusText.Text = "Chat Spammer opened"
+end)
+-- Button 27: FAKE CHAT
+Button27.MouseButton1Click:Connect(function()
+	local subGui, subFrame, content = MakeSubWindow("Fake Chat", "🎭", 360, 340)
+	-- Player name input
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(1, -24, 0, 18)
+	nameLabel.Position = UDim2.new(0, 12, 0, 12)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = "Player name:"
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.TextSize = 12
+	nameLabel.TextColor3 = TEXT_SECONDARY
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Parent = content
+	local nameBox = Instance.new("TextBox")
+	nameBox.Size = UDim2.new(1, -24, 0, 36)
+	nameBox.Position = UDim2.new(0, 12, 0, 34)
+	nameBox.BackgroundColor3 = Color3.fromRGB(14, 14, 24)
+	nameBox.Text = ""
+	nameBox.PlaceholderText = "Player name..."
+	nameBox.PlaceholderColor3 = TEXT_SECONDARY
+	nameBox.TextColor3 = TEXT_PRIMARY
+	nameBox.Font = Enum.Font.Gotham
+	nameBox.TextSize = 13
+	nameBox.BorderSizePixel = 0
+	nameBox.ClearTextOnFocus = false
+	nameBox.Parent = content
+	Instance.new("UICorner", nameBox).CornerRadius = UDim.new(0, 8)
+	makeStroke(nameBox, Color3.fromRGB(40, 40, 65), 0.8)
+	-- Message input
+	local msgLabel = Instance.new("TextLabel")
+	msgLabel.Size = UDim2.new(1, -24, 0, 18)
+	msgLabel.Position = UDim2.new(0, 12, 0, 82)
+	msgLabel.BackgroundTransparency = 1
+	msgLabel.Text = "Message:"
+	msgLabel.Font = Enum.Font.GothamBold
+	msgLabel.TextSize = 12
+	msgLabel.TextColor3 = TEXT_SECONDARY
+	msgLabel.TextXAlignment = Enum.TextXAlignment.Left
+	msgLabel.Parent = content
+	local msgBox = Instance.new("TextBox")
+	msgBox.Size = UDim2.new(1, -24, 0, 36)
+	msgBox.Position = UDim2.new(0, 12, 0, 104)
+	msgBox.BackgroundColor3 = Color3.fromRGB(14, 14, 24)
+	msgBox.Text = ""
+	msgBox.PlaceholderText = "Message..."
+	msgBox.PlaceholderColor3 = TEXT_SECONDARY
+	msgBox.TextColor3 = TEXT_PRIMARY
+	msgBox.Font = Enum.Font.Gotham
+	msgBox.TextSize = 13
+	msgBox.BorderSizePixel = 0
+	msgBox.ClearTextOnFocus = false
+	msgBox.Parent = content
+	Instance.new("UICorner", msgBox).CornerRadius = UDim.new(0, 8)
+	makeStroke(msgBox, Color3.fromRGB(40, 40, 65), 0.8)
+	-- Color picker (simple buttons)
+	local colorLabel = Instance.new("TextLabel")
+	colorLabel.Size = UDim2.new(1, -24, 0, 18)
+	colorLabel.Position = UDim2.new(0, 12, 0, 152)
+	colorLabel.BackgroundTransparency = 1
+	colorLabel.Text = "Name color:"
+	colorLabel.Font = Enum.Font.GothamBold
+	colorLabel.TextSize = 12
+	colorLabel.TextColor3 = TEXT_SECONDARY
+	colorLabel.TextXAlignment = Enum.TextXAlignment.Left
+	colorLabel.Parent = content
+	local selectedColor = Color3.fromRGB(255, 255, 255)
+	local colors = {
+		Color3.fromRGB(255, 80, 80), Color3.fromRGB(80, 255, 80),
+		Color3.fromRGB(80, 180, 255), Color3.fromRGB(255, 200, 50),
+		Color3.fromRGB(200, 80, 255), Color3.fromRGB(255, 255, 255),
+	}
+	local colorPicker = Instance.new("Frame")
+	colorPicker.Size = UDim2.new(1, -24, 0, 32)
+	colorPicker.Position = UDim2.new(0, 12, 0, 174)
+	colorPicker.BackgroundTransparency = 1
+	colorPicker.Parent = content
+	local colorLayout = Instance.new("UIListLayout")
+	colorLayout.FillDirection = Enum.FillDirection.Horizontal
+	colorLayout.Padding = UDim.new(0, 4)
+	colorLayout.Parent = colorPicker
+	local colorBtns = {}
+	for i, c in ipairs(colors) do
+		local cb = Instance.new("TextButton")
+		cb.Size = UDim2.new(0, 32, 0, 32)
+		cb.Text = ""
+		cb.BackgroundColor3 = c
+		cb.BorderSizePixel = 0
+		cb.AutoButtonColor = false
+		cb.Parent = colorPicker
+		Instance.new("UICorner", cb).CornerRadius = UDim.new(0, 6)
+		if i == 6 then
+			makeStroke(cb, ACCENT, 2)
+		end
+		colorBtns[cb] = i
+		cb.MouseButton1Click:Connect(function()
+			selectedColor = c
+			for b, _ in pairs(colorBtns) do
+				makeStroke(b, Color3.fromRGB(60, 60, 90), 0.5)
+			end
+			makeStroke(cb, ACCENT, 2)
+		end)
+	end
+	-- Send button
+	local sendBtn = Instance.new("TextButton")
+	sendBtn.Size = UDim2.new(1, -24, 0, 42)
+	sendBtn.Position = UDim2.new(0, 12, 1, -54)
+	sendBtn.Text = "SEND FAKE MESSAGE"
+	sendBtn.Font = Enum.Font.GothamBold
+	sendBtn.TextSize = 14
+	sendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	sendBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 100)
+	sendBtn.BorderSizePixel = 0
+	sendBtn.AutoButtonColor = false
+	sendBtn.Parent = content
+	Instance.new("UICorner", sendBtn).CornerRadius = UDim.new(0, 10)
+	makeStroke(sendBtn, ACCENT, 1)
+	sendBtn.MouseEnter:Connect(function() tw(sendBtn, {BackgroundColor3 = Color3.fromRGB(0, 80, 140)}, 0.15):Play() end)
+	sendBtn.MouseLeave:Connect(function() tw(sendBtn, {BackgroundColor3 = Color3.fromRGB(0, 60, 100)}, 0.15):Play() end)
+	sendBtn.MouseButton1Click:Connect(function()
+		local fakeName = nameBox.Text ~= "" and nameBox.Text or "Roblox"
+		local fakeMsg = msgBox.Text ~= "" and msgBox.Text or "Hello!"
+		local injected = false
+		-- Method 1: TextChatService (new chat system)
+		pcall(function()
+			local channels = TextChatService:FindFirstChild("TextChannels")
+			if channels then
+				local general = channels:FindFirstChild("RBXGeneral")
+				if general then
+					general:DisplaySystemMessage("<font color='rgb(255,255,255)'>" .. fakeName .. "</font>: " .. fakeMsg)
+					injected = true
+				end
+			end
+		end)
+		if not injected then
+			-- Method 2: Legacy chat GUI
+			local chatGui = LocalPlayer.PlayerGui:FindFirstChild("Chat")
+			if not chatGui then
+				chatGui = game:GetService("CoreGui"):FindFirstChild("Chat")
+			end
+			if chatGui then
+				pcall(function()
+					local chatChannels = chatGui:FindFirstChild("ChatChannelsParentFrame", true)
+					if chatChannels then
+						local channel = chatChannels:FindFirstChild("All", true) or chatChannels:GetChildren()[1]
+						if channel then
+							local msgDisplay = channel:FindFirstChild("ChatMessageDisplay", true)
+							if msgDisplay then
+								local msg = Instance.new("MessageLabel")
+								msg.Text = "[" .. fakeName .. "]: " .. fakeMsg
+								msg.Parent = msgDisplay
+								injected = true
+							end
+						end
+					end
+				end)
+			end
+		end
+		-- Fallback: show notification
+		game:GetService("StarterGui"):SetCore("SendNotification", {
+			Title = fakeName,
+			Text = fakeMsg,
+			Duration = 5,
+			Icon = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+		})
+		statusText.Text = "Fake message sent"
+	end)
+	statusText.Text = "Fake Chat opened"
+end)
+-- Button 28: CHAT BYPASSER
+local bypassMap = {
+	["a"] = "𝗮", ["b"] = "𝗯", ["c"] = "𝗰", ["d"] = "𝗱", ["e"] = "𝗲",
+		["f"] = "𝗳", ["g"] = "𝗴", ["h"] = "𝗵", ["i"] = "𝗶", ["j"] = "𝗷",
+		["k"] = "𝗸", ["l"] = "𝗹", ["m"] = "𝗺", ["n"] = "𝗻", ["o"] = "𝗼",
+		["p"] = "𝗽", ["q"] = "𝗾", ["r"] = "𝗿", ["s"] = "𝘀", ["t"] = "𝘁",
+		["u"] = "𝘂", ["v"] = "𝘃", ["w"] = "𝘄", ["x"] = "𝘅", ["y"] = "𝘆", ["z"] = "𝘇",
+	}
+Button28.MouseButton1Click:Connect(function()
+	local subGui, subFrame, content = MakeSubWindow("Chat Bypasser", "🔓", 360, 320)
+	-- Input
+	local inputLabel = Instance.new("TextLabel")
+	inputLabel.Size = UDim2.new(1, -24, 0, 18)
+	inputLabel.Position = UDim2.new(0, 12, 0, 12)
+	inputLabel.BackgroundTransparency = 1
+	inputLabel.Text = "Type text to bypass:"
+	inputLabel.Font = Enum.Font.GothamBold
+	inputLabel.TextSize = 12
+	inputLabel.TextColor3 = TEXT_SECONDARY
+	inputLabel.TextXAlignment = Enum.TextXAlignment.Left
+	inputLabel.Parent = content
+	local inputBox = Instance.new("TextBox")
+	inputBox.Size = UDim2.new(1, -24, 0, 36)
+	inputBox.Position = UDim2.new(0, 12, 0, 34)
+	inputBox.BackgroundColor3 = Color3.fromRGB(14, 14, 24)
+	inputBox.Text = ""
+	inputBox.PlaceholderText = "Type here..."
+	inputBox.PlaceholderColor3 = TEXT_SECONDARY
+	inputBox.TextColor3 = TEXT_PRIMARY
+	inputBox.Font = Enum.Font.Gotham
+	inputBox.TextSize = 13
+	inputBox.BorderSizePixel = 0
+	inputBox.ClearTextOnFocus = false
+	inputBox.MultiLine = true
+	inputBox.Parent = content
+	Instance.new("UICorner", inputBox).CornerRadius = UDim.new(0, 8)
+	makeStroke(inputBox, Color3.fromRGB(40, 40, 65), 0.8)
+	-- Output
+	local outputLabel = Instance.new("TextLabel")
+	outputLabel.Size = UDim2.new(1, -24, 0, 18)
+	outputLabel.Position = UDim2.new(0, 12, 0, 82)
+	outputLabel.BackgroundTransparency = 1
+	outputLabel.Text = "Bypassed result:"
+	outputLabel.Font = Enum.Font.GothamBold
+	outputLabel.TextSize = 12
+	outputLabel.TextColor3 = TEXT_SECONDARY
+	outputLabel.TextXAlignment = Enum.TextXAlignment.Left
+	outputLabel.Parent = content
+	local outputBox = Instance.new("TextBox")
+	outputBox.Size = UDim2.new(1, -24, 0, 60)
+	outputBox.Position = UDim2.new(0, 12, 0, 104)
+	outputBox.BackgroundColor3 = Color3.fromRGB(14, 14, 24)
+	outputBox.Text = ""
+	outputBox.PlaceholderText = "Result will appear here..."
+	outputBox.PlaceholderColor3 = TEXT_SECONDARY
+	outputBox.TextColor3 = SUCCESS
+	outputBox.Font = Enum.Font.Gotham
+	outputBox.TextSize = 13
+	outputBox.BorderSizePixel = 0
+	outputBox.ClearTextOnFocus = false
+	outputBox.TextWrapped = true
+	outputBox.ReadOnly = true
+	outputBox.Parent = content
+	Instance.new("UICorner", outputBox).CornerRadius = UDim.new(0, 8)
+	makeStroke(outputBox, Color3.fromRGB(0, 100, 60), 0.8)
+	-- Bypass function
+	local function bypassText(text)
+		local result = ""
+		for i = 1, #text do
+			local char = string.sub(text, i, i)
+			local lower = string.lower(char)
+			if bypassMap[lower] then
+				if char == lower then
+					result = result .. bypassMap[lower]
+				else
+					result = result .. string.upper(bypassMap[lower])
+				end
+			else
+				result = result .. char
+			end
+		end
+		return result
+	end
+	-- Auto-bypass on type
+	inputBox:GetPropertyChangedSignal("Text"):Connect(function()
+		outputBox.Text = bypassText(inputBox.Text)
+	end)
+	-- Copy & Send buttons
+	local btnContainer = Instance.new("Frame")
+	btnContainer.Size = UDim2.new(1, -24, 0, 42)
+	btnContainer.Position = UDim2.new(0, 12, 1, -54)
+	btnContainer.BackgroundTransparency = 1
+	btnContainer.Parent = content
+	local btnLayout = Instance.new("UIListLayout")
+	btnLayout.FillDirection = Enum.FillDirection.Horizontal
+	btnLayout.Padding = UDim.new(0, 8)
+	btnLayout.Parent = btnContainer
+	local copyBtn = Instance.new("TextButton")
+	copyBtn.Size = UDim2.new(0.5, -4, 0, 42)
+	copyBtn.Text = "COPY"
+	copyBtn.Font = Enum.Font.GothamBold
+	copyBtn.TextSize = 13
+	copyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	copyBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 100)
+	copyBtn.BorderSizePixel = 0
+	copyBtn.AutoButtonColor = false
+	copyBtn.Parent = btnContainer
+	Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 10)
+	makeStroke(copyBtn, ACCENT, 1)
+	copyBtn.MouseButton1Click:Connect(function()
+		if outputBox.Text ~= "" then
+			UIS:SetClipboard(outputBox.Text)
+			statusText.Text = "Bypassed text copied!"
+		end
+	end)
+	local sendBtn = Instance.new("TextButton")
+	sendBtn.Size = UDim2.new(0.5, -4, 0, 42)
+	sendBtn.Text = "SEND TO CHAT"
+	sendBtn.Font = Enum.Font.GothamBold
+	sendBtn.TextSize = 13
+	sendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	sendBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 50)
+	sendBtn.BorderSizePixel = 0
+	sendBtn.AutoButtonColor = false
+	sendBtn.Parent = btnContainer
+	Instance.new("UICorner", sendBtn).CornerRadius = UDim.new(0, 10)
+	makeStroke(sendBtn, SUCCESS, 1)
+	sendBtn.MouseButton1Click:Connect(function()
+		local bypassed = outputBox.Text
+		if bypassed ~= "" then
+			sendChat(bypassed)
+			statusText.Text = "Bypassed message sent!"
+		end
+	end)
+	statusText.Text = "Chat Bypasser opened"
+end)
+-- Button 29: WORD BOMB
+local wordBombOn = false
+Button29.MouseButton1Click:Connect(function()
+	local subGui, subFrame, content = MakeSubWindow("Word Bomb", "💣", 360, 280)
+	-- Message input
+	local msgLabel = Instance.new("TextLabel")
+	msgLabel.Size = UDim2.new(1, -24, 0, 18)
+	msgLabel.Position = UDim2.new(0, 12, 0, 12)
+	msgLabel.BackgroundTransparency = 1
+	msgLabel.Text = "Message to bomb:"
+	msgLabel.Font = Enum.Font.GothamBold
+	msgLabel.TextSize = 12
+	msgLabel.TextColor3 = TEXT_SECONDARY
+	msgLabel.TextXAlignment = Enum.TextXAlignment.Left
+	msgLabel.Parent = content
+	local msgBox = Instance.new("TextBox")
+	msgBox.Size = UDim2.new(1, -24, 0, 36)
+	msgBox.Position = UDim2.new(0, 12, 0, 34)
+	msgBox.BackgroundColor3 = Color3.fromRGB(14, 14, 24)
+	msgBox.Text = ""
+	msgBox.PlaceholderText = "Type message to bomb..."
+	msgBox.PlaceholderColor3 = TEXT_SECONDARY
+	msgBox.TextColor3 = TEXT_PRIMARY
+	msgBox.Font = Enum.Font.Gotham
+	msgBox.TextSize = 13
+	msgBox.BorderSizePixel = 0
+	msgBox.ClearTextOnFocus = false
+	msgBox.Parent = content
+	Instance.new("UICorner", msgBox).CornerRadius = UDim.new(0, 8)
+	makeStroke(msgBox, Color3.fromRGB(40, 40, 65), 0.8)
+	-- Mode selector
+	local modeLabel = Instance.new("TextLabel")
+	modeLabel.Size = UDim2.new(1, -24, 0, 18)
+	modeLabel.Position = UDim2.new(0, 12, 0, 82)
+	modeLabel.BackgroundTransparency = 1
+	modeLabel.Text = "Mode:"
+	modeLabel.Font = Enum.Font.GothamBold
+	modeLabel.TextSize = 12
+	modeLabel.TextColor3 = TEXT_SECONDARY
+	modeLabel.TextXAlignment = Enum.TextXAlignment.Left
+	modeLabel.Parent = content
+	local charModeBtn = Instance.new("TextButton")
+	charModeBtn.Size = UDim2.new(0.48, -4, 0, 34)
+	charModeBtn.Position = UDim2.new(0, 12, 0, 104)
+	charModeBtn.Text = "Char by Char"
+	charModeBtn.Font = Enum.Font.GothamBold
+	charModeBtn.TextSize = 12
+	charModeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	charModeBtn.BackgroundColor3 = ACCENT_DARK
+	charModeBtn.BorderSizePixel = 0
+	charModeBtn.AutoButtonColor = false
+	charModeBtn.Parent = content
+	Instance.new("UICorner", charModeBtn).CornerRadius = UDim.new(0, 8)
+	makeStroke(charModeBtn, ACCENT, 1.5)
+	local wordModeBtn = Instance.new("TextButton")
+	wordModeBtn.Size = UDim2.new(0.48, -4, 0, 34)
+	wordModeBtn.Position = UDim2.new(0.52, 8, 0, 104)
+	wordModeBtn.Text = "Word by Word"
+	wordModeBtn.Font = Enum.Font.GothamBold
+	wordModeBtn.TextSize = 12
+	wordModeBtn.TextColor3 = TEXT_SECONDARY
+	wordModeBtn.BackgroundColor3 = BG_CARD
+	wordModeBtn.BorderSizePixel = 0
+	wordModeBtn.AutoButtonColor = false
+	wordModeBtn.Parent = content
+	Instance.new("UICorner", wordModeBtn).CornerRadius = UDim.new(0, 8)
+	makeStroke(wordModeBtn, Color3.fromRGB(60, 60, 90), 0.8)
+	local bombMode = "char" -- or "word"
+	charModeBtn.MouseButton1Click:Connect(function()
+		bombMode = "char"
+		charModeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		charModeBtn.BackgroundColor3 = ACCENT_DARK
+		makeStroke(charModeBtn, ACCENT, 1.5)
+		wordModeBtn.TextColor3 = TEXT_SECONDARY
+		wordModeBtn.BackgroundColor3 = BG_CARD
+		makeStroke(wordModeBtn, Color3.fromRGB(60, 60, 90), 0.8)
+	end)
+	wordModeBtn.MouseButton1Click:Connect(function()
+		bombMode = "word"
+		wordModeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		wordModeBtn.BackgroundColor3 = ACCENT_DARK
+		makeStroke(wordModeBtn, ACCENT, 1.5)
+		charModeBtn.TextColor3 = TEXT_SECONDARY
+		charModeBtn.BackgroundColor3 = BG_CARD
+		makeStroke(charModeBtn, Color3.fromRGB(60, 60, 90), 0.8)
+	end)
+	-- Bomb button
+	local bombBtn = Instance.new("TextButton")
+	bombBtn.Size = UDim2.new(1, -24, 0, 42)
+	bombBtn.Position = UDim2.new(0, 12, 1, -54)
+	bombBtn.Text = "💣 START BOMBING"
+	bombBtn.Font = Enum.Font.GothamBold
+	bombBtn.TextSize = 14
+	bombBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	bombBtn.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+	bombBtn.BorderSizePixel = 0
+	bombBtn.AutoButtonColor = false
+	bombBtn.Parent = content
+	Instance.new("UICorner", bombBtn).CornerRadius = UDim.new(0, 10)
+	makeStroke(bombBtn, DANGER, 1)
+	bombBtn.MouseButton1Click:Connect(function()
+		wordBombOn = not wordBombOn
+		if wordBombOn then
+			bombBtn.Text = "⏹ STOP BOMBING"
+			bombBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 50)
+			makeStroke(bombBtn, SUCCESS, 1)
+			local bombMsg = msgBox.Text ~= "" and msgBox.Text or "Bomb"
+			statusText.Text = "Word Bomb: ON"
+			task.spawn(function()
+				if bombMode == "char" then
+					for i = 1, #bombMsg do
+						if not wordBombOn then break end
+						local char = string.sub(bombMsg, i, i)
+						sendChat(char)
+						task.wait(0.5)
+					end
+				else
+					local words = {}
+					for word in string.gmatch(bombMsg, "%S+") do
+						table.insert(words, word)
+					end
+					for _, word in ipairs(words) do
+						if not wordBombOn then break end
+						sendChat(word)
+						task.wait(0.5)
+					end
+				end
+				wordBombOn = false
+				bombBtn.Text = "💣 START BOMBING"
+				bombBtn.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+				makeStroke(bombBtn, DANGER, 1)
+			end)
+		else
+			bombBtn.Text = "💣 START BOMBING"
+			bombBtn.BackgroundColor3 = Color3.fromRGB(80, 30, 30)
+			makeStroke(bombBtn, DANGER, 1)
+			statusText.Text = "Word Bomb: OFF"
+		end
+	end)
+	-- Cleanup
+	subGui.AncestryChanged:Connect(function()
+		if not subGui.Parent then
+			wordBombOn = false
+		end
+	end)
+	statusText.Text = "Word Bomb opened"
+end)
+-- Button 30: CHAT MUTER
+local mutedPlayers = {}
+-- Set up TextChatService OnIncomingMessage callback to intercept muted players
+local muterCallbackInstalled = false
+local function installMuterCallback()
+	if muterCallbackInstalled then return end
+	muterCallbackInstalled = true
+	pcall(function()
+		TextChatService.OnIncomingMessage = function(textChatMessage)
+			if textChatMessage and textChatMessage.TextSource then
+				local senderUserId = textChatMessage.TextSource.UserId
+				for player, _ in pairs(mutedPlayers) do
+					if player.UserId == senderUserId then
+						local props = Instance.new("TextChatMessageProperties")
+						props.Text = " "
+						props.PrefixText = " "
+						return props
+					end
+				end
+			end
+		end
+	end)
+end
+installMuterCallback()
+Button30.MouseButton1Click:Connect(function()
+	local subGui, subFrame, content = MakeSubWindow("Chat Muter", "🔇", 360, 420)
+	-- Player scroll list
+	local playerScroll = Instance.new("ScrollingFrame")
+	playerScroll.Size = UDim2.new(1, -24, 1, -24)
+	playerScroll.Position = UDim2.new(0, 12, 0, 12)
+	playerScroll.BackgroundTransparency = 1
+	playerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	playerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	playerScroll.ScrollBarThickness = 3
+	playerScroll.ScrollBarImageColor3 = ACCENT
+	playerScroll.ScrollBarImageTransparency = 0.5
+	playerScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	playerScroll.BorderSizePixel = 0
+	playerScroll.Parent = content
+	local playerLayout = Instance.new("UIListLayout")
+	playerLayout.Padding = UDim.new(0, 4)
+	playerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	playerLayout.Parent = playerScroll
+	local muterConns = {}
+	local function refreshMuteList()
+		for _, child in ipairs(playerScroll:GetChildren()) do
+			if child:IsA("Frame") then child:Destroy() end
+		end
+		local order = 0
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer then
+				order = order + 1
+				local row = Instance.new("Frame")
+				row.Size = UDim2.new(1, 0, 0, 42)
+				row.BackgroundColor3 = BG_CARD
+				row.BorderSizePixel = 0
+				row.LayoutOrder = order
+				row.Parent = playerScroll
+				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
+				makeStroke(row, Color3.fromRGB(35, 35, 60), 0.5)
+				local plrLabel = Instance.new("TextLabel")
+				plrLabel.Size = UDim2.new(1, -90, 1, 0)
+				plrLabel.Position = UDim2.new(0, 12, 0, 0)
+				plrLabel.BackgroundTransparency = 1
+				plrLabel.Text = player.DisplayName
+				plrLabel.Font = Enum.Font.GothamBold
+				plrLabel.TextSize = 13
+				plrLabel.TextColor3 = mutedPlayers[player] and TEXT_SECONDARY or TEXT_PRIMARY
+				plrLabel.TextXAlignment = Enum.TextXAlignment.Left
+				plrLabel.Parent = row
+				local muteBtn = Instance.new("TextButton")
+				muteBtn.Size = UDim2.new(0, 70, 0, 28)
+				muteBtn.Position = UDim2.new(1, -80, 0.5, -14)
+				muteBtn.Text = mutedPlayers[player] and "UNMUTE" or "MUTE"
+				muteBtn.Font = Enum.Font.GothamBold
+				muteBtn.TextSize = 11
+				muteBtn.TextColor3 = mutedPlayers[player] and SUCCESS or DANGER
+				muteBtn.BackgroundColor3 = mutedPlayers[player] and Color3.fromRGB(0, 80, 50) or Color3.fromRGB(80, 30, 30)
+				muteBtn.BorderSizePixel = 0
+				muteBtn.AutoButtonColor = false
+				muteBtn.Parent = row
+				Instance.new("UICorner", muteBtn).CornerRadius = UDim.new(0, 6)
+				makeStroke(muteBtn, mutedPlayers[player] and SUCCESS or DANGER, 0.8)
+				muteBtn.MouseButton1Click:Connect(function()
+					if mutedPlayers[player] then
+						mutedPlayers[player] = nil
+						-- Remove legacy chat interceptor if exists
+						if muterConns[player] then
+							muterConns[player]:Disconnect()
+							muterConns[player] = nil
+						end
+					else
+						mutedPlayers[player] = true
+						-- Also intercept legacy chat messages
+						muterConns[player] = player.Chatted:Connect(function(msg)
+							local chatGui = LocalPlayer.PlayerGui:FindFirstChild("Chat")
+							if chatGui then
+								pcall(function()
+									local frames = chatGui:GetDescendants()
+									for _, desc in ipairs(frames) do
+										if desc:IsA("TextLabel") and string.find(desc.Text, player.DisplayName, 1, true) then
+											desc.Text = ""
+										end
+									end
+								end)
+							end
+						end)
+					end
+					refreshMuteList()
+				end)
+			end
+		end
+		if order == 0 then
+			local noPlayers = Instance.new("TextLabel")
+			noPlayers.Size = UDim2.new(1, 0, 0, 60)
+			noPlayers.BackgroundTransparency = 1
+			noPlayers.Text = "No other players in server"
+			noPlayers.Font = Enum.Font.Gotham
+			noPlayers.TextSize = 13
+			noPlayers.TextColor3 = TEXT_SECONDARY
+			noPlayers.LayoutOrder = 1
+			noPlayers.Parent = playerScroll
+		end
+	end
+	refreshMuteList()
+	-- Auto refresh when players join/leave
+	local paConn = Players.PlayerAdded:Connect(function() task.wait(0.5); refreshMuteList() end)
+	local prConn = Players.PlayerRemoving:Connect(function() task.wait(0.5); refreshMuteList() end)
+	-- Cleanup
+	subGui.AncestryChanged:Connect(function()
+		if not subGui.Parent then
+			if paConn then paConn:Disconnect() end
+			if prConn then prConn:Disconnect() end
+			for _, conn in pairs(muterConns) do
+				if conn then conn:Disconnect() end
+			end
+		end
+	end)
+	statusText.Text = "Chat Muter opened"
 end)
 -- Button 15: FLY NOCLIP
 local flyNoclipOn = false
@@ -4689,6 +5469,520 @@ Button18.MouseButton1Click:Connect(function()
 	game:GetService("StarterGui"):SetCore("SendNotification", {
 		Title = "Anti Detected",
 		Text = antiDetectedOn and "Enabled" or "Disabled",
+		Duration = 3
+	})
+end)
+-- Button 19: PLAYER ESP
+local espOn = false
+local espHighlights = {}
+local espBillboards = {}
+local espConn = nil
+local function clearESP()
+	for _, h in pairs(espHighlights) do if h and h.Parent then h:Destroy() end end
+	for _, b in pairs(espBillboards) do if b and b.Parent then b:Destroy() end end
+	espHighlights = {}
+	espBillboards = {}
+end
+Button19.MouseButton1Click:Connect(function()
+	espOn = not espOn
+	if espOn then
+		espConn = game:GetService("RunService").RenderStepped:Connect(function()
+			for _, plr in ipairs(Players:GetPlayers()) do
+				if plr ~= LocalPlayer and plr.Character then
+					local char = plr.Character
+					local hrp = char:FindFirstChild("HumanoidRootPart")
+					local humanoid = char:FindFirstChildOfClass("Humanoid")
+					if hrp and humanoid and humanoid.Health > 0 then
+						-- Highlight
+						if not espHighlights[plr] or not espHighlights[plr].Parent then
+							local hl = Instance.new("Highlight")
+							hl.Name = "ESP_Highlight"
+							hl.FillColor = Color3.fromRGB(255, 0, 60)
+							hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+							hl.FillTransparency = 0.5
+							hl.OutlineTransparency = 0
+							hl.Adornee = char
+							hl.Parent = char
+							espHighlights[plr] = hl
+						end
+						-- Billboard with name + distance
+						if not espBillboards[plr] or not espBillboards[plr].Parent then
+							local bb = Instance.new("BillboardGui")
+							bb.Name = "ESP_Billboard"
+							bb.Size = UDim2.new(0, 200, 0, 40)
+							bb.StudsOffset = Vector3.new(0, 3, 0)
+							bb.AlwaysOnTop = true
+							bb.Adornee = hrp
+							bb.Parent = char
+							local nameLabel = Instance.new("TextLabel")
+							nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+							nameLabel.BackgroundTransparency = 1
+							nameLabel.Text = plr.Name
+							nameLabel.Font = Enum.Font.GothamBold
+							nameLabel.TextSize = 14
+							nameLabel.TextColor3 = Color3.fromRGB(255, 0, 60)
+							nameLabel.TextStrokeTransparency = 0.5
+							nameLabel.Parent = bb
+							espBillboards[plr] = bb
+						end
+						-- Update distance
+						local bb = espBillboards[plr]
+						if bb and bb.Parent then
+							local distLabel = bb:FindFirstChildOfClass("TextLabel")
+							if distLabel and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+								local dist = math.floor((hrp.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude)
+								-- Update name label with distance
+								for _, child in ipairs(bb:GetChildren()) do
+									if child:IsA("TextLabel") then
+										child.Text = plr.Name .. "  [" .. dist .. " studs]"
+									end
+								end
+							end
+						end
+					elseif espHighlights[plr] then
+						espHighlights[plr]:Destroy()
+						espHighlights[plr] = nil
+						espBillboards[plr]:Destroy()
+						espBillboards[plr] = nil
+					end
+				end
+			end
+		end)
+		statusText.Text = "Player ESP: ON"
+	else
+		if espConn then
+			espConn:Disconnect()
+			espConn = nil
+		end
+		clearESP()
+		statusText.Text = "Player ESP: OFF"
+	end
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "Player ESP",
+		Text = espOn and "Enabled" or "Disabled",
+		Duration = 3
+	})
+end)
+-- Button 20: TRACERS
+local tracersOn = false
+local tracerLines = {}
+local tracerConn = nil
+local tracerGui = nil
+local function clearTracers()
+	for _, line in pairs(tracerLines) do if line and line.Parent then line:Destroy() end end
+	tracerLines = {}
+end
+Button20.MouseButton1Click:Connect(function()
+	tracersOn = not tracersOn
+	if tracersOn then
+		tracerGui = Instance.new("ScreenGui")
+		tracerGui.Name = "TracerGui"
+		tracerGui.ResetOnSpawn = false
+		tracerGui.IgnoreGuiInset = true
+		tracerGui.Parent = LocalPlayer.PlayerGui
+		tracerConn = game:GetService("RunService").RenderStepped:Connect(function()
+			local camera = workspace.CurrentCamera
+			local viewportSize = camera.ViewportSize
+			-- Remove stale tracers
+			for plr, line in pairs(tracerLines) do
+				if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") or plr == LocalPlayer then
+					line:Destroy()
+					tracerLines[plr] = nil
+				end
+			end
+			for _, plr in ipairs(Players:GetPlayers()) do
+				if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+					local hrp = plr.Character.HumanoidRootPart
+					local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+					if humanoid and humanoid.Health > 0 then
+						local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+						if onScreen then
+							if not tracerLines[plr] or not tracerLines[plr].Parent then
+								local line = Instance.new("Frame")
+								line.BackgroundColor3 = Color3.fromRGB(255, 0, 60)
+								line.BorderSizePixel = 0
+								line.Parent = tracerGui
+								tracerLines[plr] = line
+							end
+							local line = tracerLines[plr]
+							local startX = viewportSize.X / 2
+							local startY = viewportSize.Y / 2
+							local dx = screenPos.X - startX
+							local dy = screenPos.Y - startY
+							local dist = math.sqrt(dx * dx + dy * dy)
+							local angle = math.atan2(dy, dx)
+							line.Size = UDim2.new(0, dist, 0, 2)
+							line.Position = UDim2.new(0, startX, 0, startY)
+							line.Rotation = math.deg(angle)
+						end
+					end
+				end
+			end
+		end)
+		statusText.Text = "Tracers: ON"
+	else
+		if tracerConn then
+			tracerConn:Disconnect()
+			tracerConn = nil
+		end
+		clearTracers()
+		if tracerGui then
+			tracerGui:Destroy()
+			tracerGui = nil
+		end
+		statusText.Text = "Tracers: OFF"
+	end
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "Tracers",
+		Text = tracersOn and "Enabled" or "Disabled",
+		Duration = 3
+	})
+end)
+-- Button 21: CROSSHAIR
+local crosshairOn = false
+local crosshairGui = nil
+Button21.MouseButton1Click:Connect(function()
+	crosshairOn = not crosshairOn
+	if crosshairOn then
+		crosshairGui = Instance.new("ScreenGui")
+		crosshairGui.Name = "CrosshairGui"
+		crosshairGui.ResetOnSpawn = false
+		crosshairGui.IgnoreGuiInset = true
+		crosshairGui.Parent = LocalPlayer.PlayerGui
+		local function makeCrosshairLine(sizeX, sizeY, posX, posY)
+			local line = Instance.new("Frame")
+			line.Size = UDim2.new(0, sizeX, 0, sizeY)
+			line.Position = UDim2.new(0.5, posX, 0.5, posY)
+			line.BackgroundColor3 = Color3.fromRGB(0, 212, 255)
+			line.BorderSizePixel = 0
+			line.Parent = crosshairGui
+			return line
+		end
+		-- Center dot
+		makeCrosshairLine(3, 3, -1.5, -1.5)
+		-- Top line
+		makeCrosshairLine(2, 10, -1, -14)
+		-- Bottom line
+		makeCrosshairLine(2, 10, -1, 4)
+		-- Left line
+		makeCrosshairLine(10, 2, -14, -1)
+		-- Right line
+		makeCrosshairLine(10, 2, 4, -1)
+		-- Outline (shadow)
+		local function makeShadow(sizeX, sizeY, posX, posY)
+			local s = Instance.new("Frame")
+			s.Size = UDim2.new(0, sizeX, 0, sizeY)
+			s.Position = UDim2.new(0.5, posX, 0.5, posY)
+			s.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			s.BorderSizePixel = 0
+			s.ZIndex = -1
+			s.Parent = crosshairGui
+			return s
+		end
+		makeShadow(5, 5, -2.5, -2.5)
+		makeShadow(2, 10, -1, -14)
+		makeShadow(2, 10, -1, 4)
+		makeShadow(10, 2, -14, -1)
+		makeShadow(10, 2, 4, -1)
+		statusText.Text = "Crosshair: ON"
+	else
+		if crosshairGui then
+			crosshairGui:Destroy()
+			crosshairGui = nil
+		end
+		statusText.Text = "Crosshair: OFF"
+	end
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "Crosshair",
+		Text = crosshairOn and "Enabled" or "Disabled",
+		Duration = 3
+	})
+end)
+-- Button 22: X-RAY
+local xrayOn = false
+local xrayConn = nil
+local xrayParts = {}
+Button22.MouseButton1Click:Connect(function()
+	xrayOn = not xrayOn
+	if xrayOn then
+		xrayConn = game:GetService("RunService").RenderStepped:Connect(function()
+			for _, descendant in ipairs(workspace:GetDescendants()) do
+				if descendant:IsA("BasePart") and not descendant:IsA("Terrain") then
+					-- Only make walls/floors transparent, skip players, tools, accessories
+					local char = descendant.Parent
+					local isPlayerPart = false
+					local model = char
+					while model and model ~= workspace do
+						if model:IsA("Model") and Players:GetPlayerFromCharacter(model) then
+							isPlayerPart = true
+							break
+						end
+						model = model.Parent
+					end
+					if not isPlayerPart and not descendant.Name:match("Accessory") and descendant.Name ~= "HumanoidRootPart" then
+						if not xrayParts[descendant] then
+							-- Store original only once
+							if descendant.LocalTransparencyModifier < 1 then
+								xrayParts[descendant] = descendant.LocalTransparencyModifier
+								descendant.LocalTransparencyModifier = 0.7
+							end
+						end
+					elseif isPlayerPart then
+						-- Restore player parts
+						if xrayParts[descendant] then
+							descendant.LocalTransparencyModifier = xrayParts[descendant]
+							xrayParts[descendant] = nil
+						end
+					end
+				end
+			end
+		end)
+		statusText.Text = "X-Ray: ON"
+	else
+		if xrayConn then
+			xrayConn:Disconnect()
+			xrayConn = nil
+		end
+		for part, oldTrans in pairs(xrayParts) do
+			if part and part.Parent then
+				part.LocalTransparencyModifier = oldTrans
+			end
+		end
+		xrayParts = {}
+		statusText.Text = "X-Ray: OFF"
+	end
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "X-Ray",
+		Text = xrayOn and "Enabled" or "Disabled",
+		Duration = 3
+	})
+end)
+-- Button 23: WALK SPEED (GUI with slider)
+local walkSpeedOn = false
+local walkSpeedConn = nil
+local currentSpeed = 75
+Button23.MouseButton1Click:Connect(function()
+	local subGui, subFrame, content = MakeSubWindow("Walk Speed", "🏃", 340, 240)
+	-- Speed value label
+	local speedLabel = Instance.new("TextLabel")
+	speedLabel.Size = UDim2.new(1, 0, 0, 50)
+	speedLabel.Position = UDim2.new(0, 0, 0, 16)
+	speedLabel.BackgroundTransparency = 1
+	speedLabel.Text = currentSpeed .. " studs/s"
+	speedLabel.Font = Enum.Font.GothamBlack
+	speedLabel.TextSize = 32
+	speedLabel.TextColor3 = ACCENT
+	speedLabel.Parent = content
+	local speedLabelGrad = Instance.new("UIGradient")
+	speedLabelGrad.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, ACCENT),
+		ColorSequenceKeypoint.new(1, ACCENT_PURPLE)
+	}
+	speedLabelGrad.Parent = speedLabel
+	-- Slider track
+	local sliderTrack = Instance.new("Frame")
+	sliderTrack.Size = UDim2.new(1, -32, 0, 8)
+	sliderTrack.Position = UDim2.new(0, 16, 0, 85)
+	sliderTrack.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+	sliderTrack.BorderSizePixel = 0
+	sliderTrack.Parent = content
+	Instance.new("UICorner", sliderTrack).CornerRadius = UDim.new(0, 4)
+	-- Slider fill
+	local sliderFill = Instance.new("Frame")
+	sliderFill.Size = UDim2.new((currentSpeed - 16) / 184, 0, 1, 0)
+	sliderFill.BackgroundColor3 = ACCENT
+	sliderFill.BorderSizePixel = 0
+	sliderFill.Parent = sliderTrack
+	Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(0, 4)
+	local sliderFillGrad = Instance.new("UIGradient")
+	sliderFillGrad.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, ACCENT),
+		ColorSequenceKeypoint.new(1, ACCENT_PURPLE)
+	}
+	sliderFillGrad.Parent = sliderFill
+	-- Slider knob
+	local sliderKnob = Instance.new("Frame")
+	sliderKnob.Size = UDim2.new(0, 18, 0, 18)
+	sliderKnob.Position = UDim2.new((currentSpeed - 16) / 184, 0, 0.5, -9)
+	sliderKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	sliderKnob.BorderSizePixel = 0
+	sliderKnob.ZIndex = 3
+	sliderKnob.Parent = sliderTrack
+	Instance.new("UICorner", sliderKnob).CornerRadius = UDim.new(1, 0)
+	makeStroke(sliderKnob, ACCENT, 1.5)
+	-- Min/Max labels
+	local minLabel = Instance.new("TextLabel")
+	minLabel.Size = UDim2.new(0, 40, 0, 16)
+	minLabel.Position = UDim2.new(0, 16, 0, 100)
+	minLabel.BackgroundTransparency = 1
+	minLabel.Text = "16"
+	minLabel.Font = Enum.Font.Gotham
+	minLabel.TextSize = 10
+	minLabel.TextColor3 = TEXT_SECONDARY
+	minLabel.Parent = content
+	local maxLabel = Instance.new("TextLabel")
+	maxLabel.Size = UDim2.new(0, 40, 0, 16)
+	maxLabel.Position = UDim2.new(1, -56, 0, 100)
+	maxLabel.BackgroundTransparency = 1
+	maxLabel.Text = "200"
+	maxLabel.Font = Enum.Font.Gotham
+	maxLabel.TextSize = 10
+	maxLabel.TextColor3 = TEXT_SECONDARY
+	maxLabel.Parent = content
+	-- Toggle button
+	local toggleBtn = Instance.new("TextButton")
+	toggleBtn.Size = UDim2.new(1, -32, 0, 42)
+	toggleBtn.Position = UDim2.new(0, 16, 1, -58)
+	toggleBtn.Text = walkSpeedOn and "ON - Tap to Disable" or "OFF - Tap to Enable"
+	toggleBtn.Font = Enum.Font.GothamBold
+	toggleBtn.TextSize = 14
+	toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	toggleBtn.BackgroundColor3 = walkSpeedOn and SUCCESS or Color3.fromRGB(40, 40, 60)
+	toggleBtn.BorderSizePixel = 0
+	toggleBtn.AutoButtonColor = false
+	toggleBtn.Parent = content
+	Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 10)
+	makeStroke(toggleBtn, walkSpeedOn and SUCCESS or Color3.fromRGB(60, 60, 90), 1)
+	-- Slider drag logic
+	local dragging = false
+	local UIS = game:GetService("UserInputService")
+	local function updateSlider(input)
+		local trackPos = sliderTrack.AbsolutePosition.X
+		local trackSize = sliderTrack.AbsoluteSize.X
+		local relative = math.clamp(input.Position.X - trackPos, 0, trackSize)
+		local percent = relative / trackSize
+		currentSpeed = math.floor(16 + percent * 184)
+		speedLabel.Text = currentSpeed .. " studs/s"
+		sliderFill.Size = UDim2.new(percent, 0, 1, 0)
+		sliderKnob.Position = UDim2.new(percent, 0, 0.5, -9)
+		-- If walk speed is on, update in real-time
+		if walkSpeedOn then
+			local char = LocalPlayer.Character
+			if char then
+				local hum = char:FindFirstChildOfClass("Humanoid")
+				if hum then
+					hum.WalkSpeed = currentSpeed
+				end
+			end
+		end
+	end
+	sliderTrack.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			updateSlider(input)
+		end
+	end)
+	UIS.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+	UIS.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			updateSlider(input)
+		end
+	end)
+	-- Toggle button logic
+	toggleBtn.MouseButton1Click:Connect(function()
+		walkSpeedOn = not walkSpeedOn
+		if walkSpeedOn then
+			toggleBtn.Text = "ON - Tap to Disable"
+			toggleBtn.BackgroundColor3 = SUCCESS
+			makeStroke(toggleBtn, SUCCESS, 1)
+			walkSpeedConn = game:GetService("RunService").RenderStepped:Connect(function()
+				local char = LocalPlayer.Character
+				if char then
+					local hum = char:FindFirstChildOfClass("Humanoid")
+					if hum then
+						hum.WalkSpeed = currentSpeed
+					end
+				end
+			end)
+			statusText.Text = "Walk Speed: ON (" .. currentSpeed .. ")"
+		else
+			toggleBtn.Text = "OFF - Tap to Enable"
+			toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+			makeStroke(toggleBtn, Color3.fromRGB(60, 60, 90), 1)
+			if walkSpeedConn then
+				walkSpeedConn:Disconnect()
+				walkSpeedConn = nil
+			end
+			local char = LocalPlayer.Character
+			if char then
+				local hum = char:FindFirstChildOfClass("Humanoid")
+				if hum then
+					hum.WalkSpeed = 16
+				end
+			end
+			statusText.Text = "Walk Speed: OFF"
+		end
+	end)
+	statusText.Text = "Walk Speed GUI opened"
+end)
+-- Button 24: INFINITE JUMP
+local infJumpOn = false
+local infJumpConn = nil
+Button24.MouseButton1Click:Connect(function()
+	infJumpOn = not infJumpOn
+	if infJumpOn then
+		infJumpConn = game:GetService("UserInputService").JumpRequest:Connect(function()
+			local char = LocalPlayer.Character
+			if char then
+				local hum = char:FindFirstChildOfClass("Humanoid")
+				if hum then
+					hum:ChangeState(Enum.HumanoidStateType.Jumping)
+				end
+			end
+		end)
+		statusText.Text = "Infinite Jump: ON"
+	else
+		if infJumpConn then
+			infJumpConn:Disconnect()
+			infJumpConn = nil
+		end
+		statusText.Text = "Infinite Jump: OFF"
+	end
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "Infinite Jump",
+		Text = infJumpOn and "Enabled" or "Disabled",
+		Duration = 3
+	})
+end)
+-- Button 25: NOCLIP
+local noclipOn = false
+local noclipConn = nil
+Button25.MouseButton1Click:Connect(function()
+	noclipOn = not noclipOn
+	if noclipOn then
+		noclipConn = game:GetService("RunService").Stepped:Connect(function()
+			local char = LocalPlayer.Character
+			if char then
+				for _, part in ipairs(char:GetDescendants()) do
+					if part:IsA("BasePart") and part.CanCollide then
+						part.CanCollide = false
+					end
+				end
+			end
+		end)
+		statusText.Text = "Noclip: ON"
+	else
+		if noclipConn then
+			noclipConn:Disconnect()
+			noclipConn = nil
+		end
+		local char = LocalPlayer.Character
+		if char then
+			for _, part in ipairs(char:GetDescendants()) do
+				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+					part.CanCollide = true
+				end
+			end
+		end
+		statusText.Text = "Noclip: OFF"
+	end
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "Noclip",
+		Text = noclipOn and "Enabled" or "Disabled",
 		Duration = 3
 	})
 end)
