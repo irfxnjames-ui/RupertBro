@@ -1301,10 +1301,10 @@ local Button14 = MakeButton("Chat Bot", 2, "🤖", catChatContent, "Auto-reply t
 local Button16 = MakeButton("Anti Kick", 5, "🛡", catUtilityContent, "Toggle kick protection")
 local Button17 = MakeButton("Anti Ban", 6, "🔒", catUtilityContent, "Toggle ban protection")
 local Button18 = MakeButton("Anti Detected", 7, "👁", catUtilityContent, "Toggle detection protection")
-local Button23 = MakeButton("Speed Boost", 7, "💨", catPlayerContent, "Increase your walk speed")
-local Button24 = MakeButton("Jump Boost", 8, "🦘", catPlayerContent, "Increase your jump power")
-local Button25 = MakeButton("God Mode", 9, "🛡", catPlayerContent, "Become invincible")
-local Button26 = MakeButton("Respawn", 10, "🔄", catPlayerContent, "Force respawn your character")
+local Button23 = MakeButton("Low Gravity", 7, "🌙", catPlayerContent, "Float like you're on the moon")
+local Button24 = MakeButton("Infinite Jump", 8, "⬆", catPlayerContent, "Jump endlessly in mid-air")
+local Button25 = MakeButton("Phase Walk", 9, "👻", catPlayerContent, "Walk through walls and objects")
+local Button26 = MakeButton("Ragdoll Toggle", 10, "🦴", catPlayerContent, "Toggle ragdoll physics on/off")
 -- Button logic
 Button1.MouseButton1Click:Connect(function()
 	-------------------------
@@ -4814,83 +4814,119 @@ Button15.MouseButton1Click:Connect(function()
 
 	statusText.Text = "Fly Noclip GUI opened"
 end)
--- Button 23: SPEED BOOST
-local speedBoostOn = false
-local savedWalkSpeed = nil
+-- Button 23: LOW GRAVITY
+local lowGravityOn = false
+local savedGravity = nil
+local lowGravityConn = nil
 Button23.MouseButton1Click:Connect(function()
-	speedBoostOn = not speedBoostOn
-	local char = LocalPlayer.Character
-	local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-	if speedBoostOn then
-		if humanoid then
-			savedWalkSpeed = humanoid.WalkSpeed
-			humanoid.WalkSpeed = 80
-		end
-		statusText.Text = "Speed Boost: ON"
-		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Speed Boost", Text = "Enabled - Speed set to 80", Duration = 3})
-	else
-		if humanoid then
-			humanoid.WalkSpeed = savedWalkSpeed or 16
-		end
-		savedWalkSpeed = nil
-		statusText.Text = "Speed Boost: OFF"
-		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Speed Boost", Text = "Disabled - Speed restored", Duration = 3})
-	end
-end)
--- Button 24: JUMP BOOST
-local jumpBoostOn = false
-local savedJumpPower = nil
-Button24.MouseButton1Click:Connect(function()
-	jumpBoostOn = not jumpBoostOn
-	local char = LocalPlayer.Character
-	local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-	if jumpBoostOn then
-		if humanoid then
-			savedJumpPower = humanoid.JumpPower
-			humanoid.JumpPower = 150
-		end
-		statusText.Text = "Jump Boost: ON"
-		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Jump Boost", Text = "Enabled - Jump set to 150", Duration = 3})
-	else
-		if humanoid then
-			humanoid.JumpPower = savedJumpPower or 50
-		end
-		savedJumpPower = nil
-		statusText.Text = "Jump Boost: OFF"
-		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Jump Boost", Text = "Disabled - Jump restored", Duration = 3})
-	end
-end)
--- Button 25: GOD MODE
-local godModeOn = false
-local godModeConn = nil
-Button25.MouseButton1Click:Connect(function()
-	godModeOn = not godModeOn
-	if godModeOn then
-		godModeConn = game:GetService("RunService").Stepped:Connect(function()
-			local char = LocalPlayer.Character
-			local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-			if humanoid and humanoid.Health < humanoid.MaxHealth then
-				humanoid.Health = humanoid.MaxHealth
+	lowGravityOn = not lowGravityOn
+	if lowGravityOn then
+		savedGravity = workspace.Gravity
+		workspace.Gravity = 60
+		-- Keep gravity low even if other scripts change it
+		lowGravityConn = workspace:GetPropertyChangedSignal("Gravity"):Connect(function()
+			if lowGravityOn and workspace.Gravity > 60 then
+				workspace.Gravity = 60
 			end
 		end)
-		statusText.Text = "God Mode: ON"
-		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "God Mode", Text = "Enabled - You are invincible", Duration = 3})
+		statusText.Text = "Low Gravity: ON"
+		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Low Gravity", Text = "Enabled - Gravity set to 60 (moon-like)", Duration = 3})
 	else
-		if godModeConn then godModeConn:Disconnect() godModeConn = nil end
-		statusText.Text = "God Mode: OFF"
-		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "God Mode", Text = "Disabled", Duration = 3})
+		if lowGravityConn then lowGravityConn:Disconnect() lowGravityConn = nil end
+		workspace.Gravity = savedGravity or 196.2
+		savedGravity = nil
+		statusText.Text = "Low Gravity: OFF"
+		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Low Gravity", Text = "Disabled - Gravity restored", Duration = 3})
 	end
 end)
--- Button 26: RESPAWN
+-- Button 24: INFINITE JUMP
+local infiniteJumpOn = false
+local infiniteJumpConn = nil
+Button24.MouseButton1Click:Connect(function()
+	infiniteJumpOn = not infiniteJumpOn
+	if infiniteJumpOn then
+		infiniteJumpConn = UIS.JumpRequest:Connect(function()
+			if infiniteJumpOn then
+				local char = LocalPlayer.Character
+				local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+				end
+			end
+		end)
+		statusText.Text = "Infinite Jump: ON"
+		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Infinite Jump", Text = "Enabled - Jump in mid-air!", Duration = 3})
+	else
+		if infiniteJumpConn then infiniteJumpConn:Disconnect() infiniteJumpConn = nil end
+		statusText.Text = "Infinite Jump: OFF"
+		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Infinite Jump", Text = "Disabled", Duration = 3})
+	end
+end)
+-- Button 25: PHASE WALK
+local phaseWalkOn = false
+local phaseWalkConn = nil
+Button25.MouseButton1Click:Connect(function()
+	phaseWalkOn = not phaseWalkOn
+	if phaseWalkOn then
+		phaseWalkConn = game:GetService("RunService").Stepped:Connect(function()
+			if phaseWalkOn then
+				local char = LocalPlayer.Character
+				if char then
+					for _, part in ipairs(char:GetDescendants()) do
+						if part:IsA("BasePart") then
+							part.CanCollide = false
+						end
+					end
+				end
+			end
+		end)
+		statusText.Text = "Phase Walk: ON"
+		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Phase Walk", Text = "Enabled - Walk through walls!", Duration = 3})
+	else
+		if phaseWalkConn then phaseWalkConn:Disconnect() phaseWalkConn = nil end
+		-- Restore collisions
+		local char = LocalPlayer.Character
+		if char then
+			for _, part in ipairs(char:GetDescendants()) do
+				if part:IsA("BasePart") then
+					part.CanCollide = true
+				end
+			end
+		end
+		statusText.Text = "Phase Walk: OFF"
+		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Phase Walk", Text = "Disabled - Collisions restored", Duration = 3})
+	end
+end)
+-- Button 26: RAGDOLL TOGGLE
+local ragdollOn = false
+local savedStates = {}
 Button26.MouseButton1Click:Connect(function()
+	ragdollOn = not ragdollOn
 	local char = LocalPlayer.Character
 	local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		humanoid.Health = 0
-		statusText.Text = "Respawn: Triggered"
-		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Respawn", Text = "Character respawning...", Duration = 3})
+	if not humanoid then
+		statusText.Text = "Ragdoll: No character found"
+		return
+	end
+	if ragdollOn then
+		-- Save current state and enable ragdoll
+		savedStates = {}
+		savedStates.GettingUp = humanoid:GetStateEnabled(Enum.HumanoidStateType.GettingUp)
+		savedStates.FallingDown = humanoid:GetStateEnabled(Enum.HumanoidStateType.FallingDown)
+		savedStates.Ragdoll = humanoid:GetStateEnabled(Enum.HumanoidStateType.Ragdoll)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+		humanoid:ChangeState(Enum.HumanoidStateType.Ragdoll)
+		statusText.Text = "Ragdoll: ON"
+		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Ragdoll Toggle", Text = "Enabled - You're a ragdoll!", Duration = 3})
 	else
-		statusText.Text = "Respawn: No character found"
+		-- Restore states and disable ragdoll
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, savedStates.GettingUp ~= false)
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, savedStates.FallingDown ~= false)
+		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+		savedStates = {}
+		statusText.Text = "Ragdoll: OFF"
+		game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Ragdoll Toggle", Text = "Disabled - Standing back up!", Duration = 3})
 	end
 end)
 -- Anti-Kick
